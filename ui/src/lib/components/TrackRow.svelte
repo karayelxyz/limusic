@@ -22,6 +22,7 @@
 	import SavedInPlaylists from './SavedInPlaylists.svelte';
 	import TrackMenu from './TrackMenu.svelte';
 	import ArtistLine from './ArtistLine.svelte';
+	import Marquee from './Marquee.svelte';
 	import ExplicitIcon from './ExplicitIcon.svelte';
 	import { currentLocale, t } from '$lib/i18n.svelte';
 	import { keyOf } from '$lib/shortcuts';
@@ -319,9 +320,13 @@
 		</div>
 		<div class="min-w-0 flex-1">
 			<div class="flex min-w-0 items-center gap-2">
-				<span class="min-w-0 truncate text-sm font-medium {active ? 'text-primary' : ''}">
-					{song.title}
-				</span>
+				<!-- The title scrolls under the pointer when it doesn't fit, like the player bar's: a
+				     truncated name tells you which song it is only if you already know the song. -->
+				<Marquee
+					hover
+					text={song.title}
+					class="min-w-0 flex-1 text-sm font-medium {active ? 'text-primary' : ''}"
+				/>
 				{#if song.queued_by}
 					<span
 						class="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
@@ -450,9 +455,13 @@
 			     only place the state shows at all. Hidden rather than removed, so the duration and the ⋯
 			     don't shift sideways when the pointer arrives. `group-focus-within`, not the button's own
 			     `focus-within`: a hidden element can't take focus, so the row (which is focusable) is
-			     what has to reveal it before Tab can reach it. -->
+			     what has to reveal it before Tab can reach it.
+
+			     Below sm there is no pointer hovering to reveal them and the title needs the width
+			     more (the sidebar is off-canvas there, so the row is as narrow as the window gets);
+			     the ⋯ menu carries like and dislike either way. -->
 			<div
-				class="flex items-center gap-0.5 {rated === 'indifferent'
+				class="flex items-center gap-0.5 max-sm:hidden {rated === 'indifferent'
 					? 'invisible group-focus-within:visible group-hover:visible'
 					: ''}"
 			>

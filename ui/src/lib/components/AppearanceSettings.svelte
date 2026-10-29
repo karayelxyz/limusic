@@ -68,6 +68,26 @@
 
 	const isDark = $derived(mode.current === 'dark');
 
+	// --- Top bar ----------------------------------------------------------------------------------
+	// One row per optional button of the titlebar. `id` is the key saved in `appearance.titlebarHidden`
+	// (nothing hidden on a fresh install) and the string Titlebar.svelte checks before rendering a
+	// button; the titles reuse each button's own label, so the list reads like the bar itself.
+	const TOP_BAR_BUTTONS: readonly { id: string; title: TranslationKey; desc?: TranslationKey }[] = [
+		{ id: 'account', title: 'nav.account', desc: 'settings.themes.top_bar_account_hint' },
+		{ id: 'refresh', title: 'common.refresh' },
+		{ id: 'link', title: 'dialogs.link.title' },
+		{ id: 'listen_together', title: 'nav.listen_together' },
+		{ id: 'discord', title: 'settings.general.discord_rpc' },
+		{ id: 'lastfm', title: 'settings.themes.top_bar_lastfm' },
+		{ id: 'theater', title: 'player.theater_mode' },
+		{ id: 'mini', title: 'a11y.toggle_mini' }
+	];
+
+	function setTopBarButton(id: string, on: boolean) {
+		const hidden = appearance.titlebarHidden.filter((k) => k !== id);
+		setAppearance({ titlebarHidden: on ? hidden : [...hidden, id] });
+	}
+
 	// --- Live preview -----------------------------------------------------------------------------
 	// What a drag in progress would set. Empty between drags; the miniatures read it over `custom`.
 	let draft = $state<{ accent?: string; hue?: number; radius?: number }>({});
@@ -304,11 +324,12 @@
 	</Button>
 {/snippet}
 
-<!-- Options scroll, the preview does not. Side by side from `lg` up; below it the preview becomes a
-     strip above the options, since under the options it would be out of sight while dragging. -->
-<div class="flex min-h-0 flex-1 max-lg:flex-col-reverse">
+<!-- Options scroll, the preview does not. Side by side from `lg` up. Below it the dialog cannot hold
+     both columns: the preview keeps its height and the options get squeezed to nothing, so below
+     `lg` the wrapper becomes the scroller and the preview reads as the tab's last section. -->
+<div class="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-y-auto max-lg:overflow-x-hidden">
 	<!-- relative: see the content pane in SettingsDialog (#406). -->
-	<div class="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5">
+	<div class="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5 max-lg:flex-none max-lg:overflow-visible">
 		<section class={GROUP}>
 			<h3 class={LABEL}>{t('settings.sections.theme')}</h3>
 			<div class={CARD}>
@@ -413,6 +434,29 @@
 		</section>
 
 		<section class={GROUP}>
+			<h3 class={LABEL}>{t('settings.sections.top_bar')}</h3>
+			<p class="mb-2 px-1 text-xs leading-relaxed text-muted-foreground">
+				{t('settings.themes.top_bar_hint')}
+			</p>
+			<div class={CARD}>
+				{#each TOP_BAR_BUTTONS as button (button.id)}
+					<!-- Zero-arg wrappers: a snippet passed as a value can't carry arguments. -->
+					{#snippet topBarSwitch()}
+						<Switch
+							checked={!appearance.titlebarHidden.includes(button.id)}
+							onCheckedChange={(on) => setTopBarButton(button.id, on)}
+						/>
+					{/snippet}
+					{@render row({
+						title: t(button.title),
+						desc: button.desc ? t(button.desc) : undefined,
+						control: topBarSwitch
+					})}
+				{/each}
+			</div>
+		</section>
+
+		<section class={GROUP}>
 			<h3 class={LABEL}>{t('settings.sections.typography')}</h3>
 			<div class={CARD}>
 				{#each FONT_ROWS as fr (fr.key)}
@@ -468,9 +512,9 @@
 	</div>
 
 	<aside
-		class="flex shrink-0 gap-3 bg-muted/30 px-5 py-5 lg:w-[22rem] lg:flex-col lg:border-l max-lg:items-center max-lg:border-b max-lg:py-3"
+		class="flex shrink-0 flex-col gap-3 border-t bg-muted/30 px-5 py-5 max-lg:py-4 lg:w-[22rem] lg:border-t-0 lg:border-l"
 	>
-		<h3 class="{LABEL} max-lg:hidden">{t('settings.themes.preview')}</h3>
+		<h3 class={LABEL}>{t('settings.themes.preview')}</h3>
 		<div class="max-lg:w-52 max-lg:shrink-0">
 			<ThemeMock id={theme.id} dark={isDark} overrides={live} {detail} />
 		</div>

@@ -66,10 +66,9 @@
 
 	// Account lives in the titlebar now — see AccountMenu.svelte.
 
-	// Manual collapse is a large-screen preference: below lg the rail is already collapsed by the
-	// breakpoint, so the button is hidden there and `wide()` has nothing to drop. Every expanded
-	// style is an `lg:` class, so collapsing is just not emitting them. The flag lives in `ui`
-	// because the overlays that offset by the sidebar's width read it too.
+	// Collapsing is a 640px-and-up preference: below sm the sidebar is an overlay drawer and always
+	// shows the expanded look, because there is no pinch to spare for icons alone. Above sm the flag
+	// picks the 240px sidebar or the 64px rail, and the header's own button switches between them.
 	const collapsed = $derived(ui.sidebarCollapsed);
 
 	// A Spotify import working in the background (#375): what it is doing, and how far along.
@@ -100,22 +99,43 @@
 		if (id) goto(`/playlist/${encodeURIComponent(id)}`);
 		else imp.open = true;
 	}
-	const wide = (cls: string) => (collapsed ? '' : cls);
+	const wide = (cls: string) => (showWide ? cls : '');
+	// The rail opens under the pointer, without touching the saved preference, so a playlist
+	// thumbnail there is one hover away from its name. The page must not reflow for a transient
+	// hover, so while it is open the rail is lifted out of the flow (see the spacer and the
+	// absolute classes below).
+	let hovering = $state(false);
+	const showWide = $derived(!collapsed || hovering);
+	// Below sm the sidebar is off-canvas and the titlebar's menu button slides it over the page
+	// (see `ui.navOpen` and the backdrop in +layout).
+	const drawer = (cls: string) => (ui.navOpen ? cls : '');
+	const closeDrawer = () => (ui.navOpen = false);
 </script>
 
+<!-- Holds the rail's 64px in the flow while the hover-open version is absolute, so a pointer
+     passing over the rail widens it over the page instead of shoving the page sideways. -->
+{#if hovering}
+	<div class="hidden w-16 shrink-0 sm:block" aria-hidden="true"></div>
+{/if}
 <aside
-	class="flex h-full w-16 shrink-0 flex-col border-r bg-sidebar p-3 text-sidebar-foreground {wide(
-		'lg:w-60'
-	)}"
+	class="flex h-full w-60 shrink-0 flex-col border-r bg-sidebar p-3 text-sidebar-foreground {showWide
+		? ''
+		: 'sm:w-16 sm:p-2'} {hovering
+		? 'sm:absolute sm:inset-y-0 sm:left-0 sm:z-40 sm:shadow-xl'
+		: ''} {ui.navOpen
+		? 'max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-40 max-sm:shadow-xl'
+		: 'max-sm:hidden'}"
+	onmouseenter={() => (hovering = collapsed)}
+	onmouseleave={() => (hovering = false)}
 >
-	<div class="flex items-center justify-center px-2 py-2 {wide('lg:justify-between')}">
-		<span class="hidden font-heading text-lg font-bold tracking-tight {wide('lg:block')}">Limusic</span>
+	<div class="flex items-center justify-center px-2 py-2 {drawer('max-sm:justify-between')} {wide('sm:justify-between')}">
+		<span class="hidden font-heading text-lg font-bold tracking-tight {drawer('max-sm:block')} {wide('sm:block')}">Limusic</span>
 		<!-- Column when collapsed: the two buttons don't fit side by side in the 64px rail. -->
-		<div class="flex items-center gap-1 {collapsed ? 'flex-col' : ''}">
+		<div class="flex items-center gap-1 {showWide ? '' : 'sm:flex-col'}">
 			<Button
 				variant="ghost"
 				size="icon-sm"
-				class="hidden hover:text-primary lg:inline-flex"
+				class="hidden hover:text-primary sm:inline-flex"
 				onclick={toggleSidebar}
 				aria-label={collapsed ? t('a11y.expand_sidebar') : t('a11y.collapse_sidebar')}
 			>
@@ -146,9 +166,10 @@
 			<a
 				href={n.href}
 				title={n.label}
-				class="group relative flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors {wide(
-					'lg:justify-start'
-				)} {isActive(n.href)
+				onclick={closeDrawer}
+				class="group relative flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors {drawer(
+					'max-sm:justify-start'
+				)} {wide('sm:justify-start')} {isActive(n.href)
 					? 'bg-primary/10 text-primary'
 					: 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'}"
 			>
@@ -162,21 +183,24 @@
 					icon={n.icon}
 					class="h-5 w-5 shrink-0"
 				/>
-				<span class="hidden {wide('lg:inline')}">{n.label}</span>
+				<span class="hidden {drawer('max-sm:inline')} {wide('sm:inline')}">{n.label}</span>
 			</a>
 		{/each}
 		<button
-			onclick={() => (ui.settingsOpen = true)}
+			onclick={() => {
+				ui.navOpen = false;
+				ui.settingsOpen = true;
+			}}
 			title={t('nav.settings')}
-			class="group flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground {wide(
-				'lg:justify-start'
-			)}"
+			class="group flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground {drawer(
+				'max-sm:justify-start'
+			)} {wide('sm:justify-start')}"
 		>
 			<HugeiconsIcon
 				icon={Settings01Icon}
 				class="h-5 w-5 shrink-0"
 			/>
-			<span class="hidden {wide('lg:inline')}">{t('nav.settings')}</span>
+			<span class="hidden {drawer('max-sm:inline')} {wide('sm:inline')}">{t('nav.settings')}</span>
 		</button>
 	</nav>
 
@@ -186,9 +210,9 @@
 			title={importing.label}
 			class="mt-2 flex flex-col gap-1.5 rounded-lg bg-primary/10 px-3 py-2 text-left text-xs font-medium text-primary transition-colors hover:bg-primary/15"
 		>
-			<span class="flex items-center justify-center gap-3 {wide('lg:justify-start')}">
+			<span class="flex items-center justify-center gap-3 {wide('sm:justify-start')}">
 				<HugeiconsIcon icon={SpotifyIcon} class="h-5 w-5 shrink-0" />
-				<span class="hidden truncate {wide('lg:inline')}">{importing.label}</span>
+				<span class="hidden truncate {wide('sm:inline')}">{importing.label}</span>
 			</span>
 			{#if importing.progress !== null}
 				<span class="block h-1 w-full overflow-hidden rounded-full bg-primary/15">
@@ -201,17 +225,30 @@
 		</button>
 	{/if}
 
-	<!-- Playlists. Hidden on the icon rail (needs labels; matches YTM's collapsed rail). flex-1 lets
-	     the list fill the space and scroll. Always there, signed out included: a playlist can be
-	     made on this machine without an account (#251). -->
-	<div class="mt-3 hidden min-h-0 flex-1 flex-col border-t pt-3 {wide('lg:flex')}">
-		<Button variant="outline" size="sm" class="mb-2 w-full gap-2" onclick={() => openNewPlaylist()}>
-			<HugeiconsIcon icon={Add01Icon} class="h-4 w-4" /> {t('nav.new_playlist')}
+	<!-- Playlists, in every width: the expanded sidebar and the narrow drawer show the full rows, the
+	     64px rail keeps the covers alone (a hover opens the rail, see `hovering`). flex-1 lets the
+	     list fill the space and scroll. Always there, signed out included: a playlist can be made on
+	     this machine without an account (#251). -->
+	<div class="mt-3 flex min-h-0 flex-1 flex-col border-t pt-3">
+		<Button
+			variant="outline"
+			size="sm"
+			class="mb-2 w-full gap-2 sm:justify-center sm:px-0 {wide('sm:justify-start sm:px-3')}"
+			onclick={() => openNewPlaylist()}
+		>
+			<HugeiconsIcon icon={Add01Icon} class="h-4 w-4" />
+			<span class="hidden max-sm:inline {wide('sm:inline')}">{t('nav.new_playlist')}</span>
 		</Button>
 		<!-- `relative z-0` gives the list its own stacking context, which keeps its scrollbar on
 		     screen. Without it, the ⋯ button fading in on a hovered row blanks the thumb on WebKitGTK
 		     for as long as the fade runs (#420, same bug as #343). -->
-		<div class="min-h-0 flex-1 overflow-y-auto relative z-0">
+		<!-- The 64px rail has no room for a scrollbar beside the 40px covers, so it scrolls without
+		     one (both axes hidden: a 1px overflow would otherwise add a bar under the list too). -->
+		<div
+			class="min-h-0 flex-1 overflow-y-auto relative z-0 {showWide
+				? ''
+				: 'sm:overflow-x-hidden sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden'}"
+		>
 			{#each playlists as pl, i (pl.id)}
 				<!-- The ⋯ is a sibling of the link, not a child: a <button> inside an <a> is invalid
 				     HTML. pr-9 keeps the title clear of the button that overlays the row on hover. -->
@@ -219,7 +256,9 @@
 					<a
 						href={playlistHref(pl)}
 						title={pl.title}
-						class="flex items-center gap-2.5 rounded-lg py-1.5 pl-2 pr-9 transition-colors hover:bg-sidebar-accent/50"
+						class="flex items-center gap-2.5 rounded-lg py-1.5 pl-2 pr-9 transition-colors hover:bg-sidebar-accent/50 {showWide
+							? ''
+							: 'sm:justify-center sm:gap-0 sm:pl-0 sm:pr-0'}"
 					>
 						<div
 							class="relative h-10 w-10 shrink-0 overflow-hidden bg-muted {pl.kind === 'artist'
@@ -257,7 +296,7 @@
 								<HugeiconsIcon icon={PinIcon} class="h-2.5 w-2.5" />
 							</span>
 						{/if}
-						<div class="min-w-0 flex-1">
+						<div class="hidden min-w-0 flex-1 max-sm:block {wide('sm:block')}">
 							<div class="truncate text-[13px] font-medium">{pl.title}</div>
 							{#if pl.subtitle}
 								<!-- The rail keeps only the count, so a playlist on this machine says

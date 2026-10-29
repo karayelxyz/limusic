@@ -25,12 +25,14 @@
 		HotspotOfflineIcon,
 		UserGroup02Icon,
 		Link04Icon,
-		Settings02Icon
+		Settings02Icon,
+		Menu01Icon
 	} from '@hugeicons/core-free-icons';
 	import LastFmIcon from './LastFmIcon.svelte';
 	import DiscordIcon from './DiscordIcon.svelte';
 	import AccountMenu from './AccountMenu.svelte';
 	import { appIcon } from '$lib/appicon.svelte';
+	import { appearance } from '$lib/theme.svelte';
 	import * as api from '$lib/api';
 	import { openMiniPlayer, playback, prefs, refreshView, toast, ui } from '$lib/player.svelte';
 	import { win } from '$lib/win.svelte';
@@ -42,6 +44,11 @@
 
 	// `w` is this window; `win` (imported) is the shared frame state.
 	const w = getCurrentWindow();
+
+	// Which buttons the bar renders, from Appearance ▸ Interface ▸ Top bar. The narrow-width rules
+	// (`max-sm:hidden`) still apply on top of this: a button someone wants is not worth a bar whose
+	// right end is clipped at 400px.
+	const shown = (id: string) => !appearance.titlebarHidden.includes(id);
 
 	// Back/forward. `depth` is how many history entries deep the session is, `deepest` how far it
 	// has ever been, so both buttons grey out instead of doing nothing. popstate carries a signed
@@ -136,7 +143,7 @@
 	class="pointer-events-auto relative {ui.theaterOpen ? 'z-0' : 'z-50'} flex h-9 shrink-0 select-none items-center justify-between border-b border-border/60 bg-background"
 >
 	<span
-		class="pointer-events-none absolute inset-x-0 text-center text-xs font-medium tracking-wide text-muted-foreground"
+		class="pointer-events-none absolute inset-x-0 text-center text-xs font-medium tracking-wide text-muted-foreground max-sm:hidden"
 	>
 		Limusic
 	</span>
@@ -148,6 +155,18 @@
 	     sizes the titlebar to the 16px button plus `y` and the buttons keep their offset from its
 	     bottom, so their centre lands at y + 2 (y: 10 moved them up 2px on a real Mac). -->
 	<div class="flex h-full items-center {win.chrome === 'overlay' ? 'pl-[70px]' : ''}">
+		<!-- Below sm the sidebar is off-canvas (see Sidebar.svelte), so this is the only way back to
+		     it. It shares the bar with the window controls and nothing else: at 400px the six
+		     integration buttons below and this row's refresh button cannot both stay. -->
+		<button
+			class="flex h-full w-9 items-center justify-center text-foreground/80 transition-colors hover:bg-accent/10 hover:text-foreground sm:hidden"
+			onclick={() => (ui.navOpen = !ui.navOpen)}
+			aria-expanded={ui.navOpen}
+			title={ui.navOpen ? t('a11y.collapse_sidebar') : t('a11y.expand_sidebar')}
+			aria-label={ui.navOpen ? t('a11y.collapse_sidebar') : t('a11y.expand_sidebar')}
+		>
+			<HugeiconsIcon icon={Menu01Icon} strokeWidth={2.5} class="h-5 w-5" />
+		</button>
 		<!-- pointer-events-none: the logo is decoration; clicks on it should drag the window. -->
 		<img src={appIcon.src} alt="" class="pointer-events-none ml-3 mr-1 h-4 w-4" />
 		<!-- Bigger and heavier than the icons on the right: these are navigation, and at their
@@ -173,129 +192,148 @@
 		<!-- Third in the browser's own control group, and read as such without a label. It drops the
 		     browse cache and remounts the page, which is the only way to ask YouTube for a different
 		     home feed: refetching rotates roughly a third of "Quick picks" (#177). Never disabled,
-		     since the page it reloads is always there; the route's own skeletons are the progress. -->
-		<button
-			class="flex h-full w-9 items-center justify-center text-foreground/80 transition-colors hover:bg-accent/10 hover:text-foreground"
-			onclick={refreshView}
-			title={t('common.refresh')}
-			aria-label={t('common.refresh')}
-		>
-			<HugeiconsIcon icon={Refresh03Icon} strokeWidth={2.5} class="h-4 w-4" />
-		</button>
+		     since the page it reloads is always there; the route's own skeletons are the progress.
+		     Dropped below sm, where the menu button above needs its 36px and F5 does the same. -->
+		{#if shown('refresh')}
+			<button
+				class="flex h-full w-9 max-sm:hidden items-center justify-center text-foreground/80 transition-colors hover:bg-accent/10 hover:text-foreground"
+				onclick={refreshView}
+				title={t('common.refresh')}
+				aria-label={t('common.refresh')}
+			>
+				<HugeiconsIcon icon={Refresh03Icon} strokeWidth={2.5} class="h-4 w-4" />
+			</button>
+		{/if}
 	</div>
 
 	<div class="flex h-full items-center">
 		<!-- Account first, then the integrations, then the window controls. The drag region lives on
-		     <header> only, so these children are ordinary buttons — don't add the attribute here. -->
-		<AccountMenu />
-		<div class="mx-1.5 h-4 w-px bg-border"></div>
+		     <header> only, so these children are ordinary buttons — don't add the attribute here.
+		     Each one is optional from Appearance ▸ Interface ▸ Top bar; the separator after the
+		     account button goes with it, since it only groups it against the integrations. -->
+		{#if shown('account')}
+			<AccountMenu />
+			<div class="mx-1.5 h-4 w-px bg-border"></div>
+		{/if}
 
 		<!-- Paste a YouTube Music link and go to it: the only way into a playlist that is shared by
 		     link and never appears in search or the library (#63). -->
-		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
-			onclick={() => (ui.linkOpen = true)}
-			title={t('dialogs.link.title')}
-			aria-label={t('dialogs.link.title')}
-		>
-			<HugeiconsIcon icon={Link04Icon} class="h-4 w-4" />
-		</button>
+		{#if shown('link')}
+			<button
+				class="flex h-full w-8 max-sm:hidden items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+				onclick={() => (ui.linkOpen = true)}
+				title={t('dialogs.link.title')}
+				aria-label={t('dialogs.link.title')}
+			>
+				<HugeiconsIcon icon={Link04Icon} class="h-4 w-4" />
+			</button>
+		{/if}
 
 		<!-- Opens the same modal as the home hero's button (one dialog, mounted in +layout). -->
-		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {lt.role !==
-			'none'
-				? 'text-primary'
-				: ''}"
-			onclick={() => (ui.ltOpen = true)}
-			title={t('nav.listen_together')}
-			aria-label={t('nav.listen_together')}
-		>
-			<span class="relative">
-				<HugeiconsIcon icon={UserGroup02Icon} class="h-4 w-4" />
-				{#if lt.role !== 'none'}
-					<!-- Discord's status dot with a ping behind it: two layers, because animate-ping
-					     scales and fades the element it's on, so a lone dot would blink out. -->
-					<span class="absolute -right-0.5 -top-0.5 h-1.5 w-1.5">
-						<span class="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-75"
-						></span>
-						<span class="absolute inset-0 rounded-full bg-emerald-500 ring-[1.5px] ring-background"
-						></span>
-					</span>
-				{/if}
-			</span>
-		</button>
+		{#if shown('listen_together')}
+			<button
+				class="flex h-full w-8 max-sm:hidden items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {lt.role !==
+				'none'
+					? 'text-primary'
+					: ''}"
+				onclick={() => (ui.ltOpen = true)}
+				title={t('nav.listen_together')}
+				aria-label={t('nav.listen_together')}
+			>
+				<span class="relative">
+					<HugeiconsIcon icon={UserGroup02Icon} class="h-4 w-4" />
+					{#if lt.role !== 'none'}
+						<!-- Discord's status dot with a ping behind it: two layers, because animate-ping
+						     scales and fades the element it's on, so a lone dot would blink out. -->
+						<span class="absolute -right-0.5 -top-0.5 h-1.5 w-1.5">
+							<span class="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-75"
+							></span>
+							<span class="absolute inset-0 rounded-full bg-emerald-500 ring-[1.5px] ring-background"
+							></span>
+						</span>
+					{/if}
+				</span>
+			</button>
+		{/if}
 
-		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {discordOn
-				? 'text-foreground'
-				: ''}"
-			onclick={toggleDiscord}
-			title={discordOn ? t('integrations.discord_tooltip_on') : t('integrations.discord_tooltip_off')}
-			aria-label={t('settings.general.discord_rpc')}
-		>
-			<span class="relative">
-				<DiscordIcon class="h-4 w-4" />
-				<!-- Presence status dot, Discord-style: green = live, red = off. -->
-				<span
-					class="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full ring-[1.5px] ring-background {discordOn
-						? 'bg-emerald-500'
-						: 'bg-red-500'}"
-				></span>
-			</span>
-		</button>
+		{#if shown('discord')}
+			<button
+				class="flex h-full w-8 max-sm:hidden items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {discordOn
+					? 'text-foreground'
+					: ''}"
+				onclick={toggleDiscord}
+				title={discordOn ? t('integrations.discord_tooltip_on') : t('integrations.discord_tooltip_off')}
+				aria-label={t('settings.general.discord_rpc')}
+			>
+				<span class="relative">
+					<DiscordIcon class="h-4 w-4" />
+					<!-- Presence status dot, Discord-style: green = live, red = off. -->
+					<span
+						class="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full ring-[1.5px] ring-background {discordOn
+							? 'bg-emerald-500'
+							: 'bg-red-500'}"
+					></span>
+				</span>
+			</button>
+		{/if}
 
-		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {connected
-				? 'text-foreground'
-				: ''}"
-			onclick={onScrobblerClick}
-			title={scrobblerTitle}
-			aria-label={scrobblerTitle}
-		>
-			<span class="relative">
-				<LastFmIcon class="h-4 w-4 {connecting ? 'animate-pulse opacity-60' : ''}" />
-				{#if connecting}
-					<HugeiconsIcon
-						icon={Loading03Icon}
-						strokeWidth={2.5}
-						class="absolute -bottom-1.5 -right-2 h-3.5 w-3.5 animate-spin text-primary"
-					/>
-				{:else if connected}
-					<!-- bg-background ring so the badge reads over the icon's stroke. -->
-					<HugeiconsIcon
-						icon={CheckmarkCircle01Icon}
-						strokeWidth={2.5}
-						class="absolute -bottom-1.5 -right-2 h-3.5 w-3.5 rounded-full bg-background text-primary"
-					/>
-				{/if}
-			</span>
-		</button>
+		{#if shown('lastfm')}
+			<button
+				class="flex h-full w-8 max-sm:hidden items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {connected
+					? 'text-foreground'
+					: ''}"
+				onclick={onScrobblerClick}
+				title={scrobblerTitle}
+				aria-label={scrobblerTitle}
+			>
+				<span class="relative">
+					<LastFmIcon class="h-4 w-4 {connecting ? 'animate-pulse opacity-60' : ''}" />
+					{#if connecting}
+						<HugeiconsIcon
+							icon={Loading03Icon}
+							strokeWidth={2.5}
+							class="absolute -bottom-1.5 -right-2 h-3.5 w-3.5 animate-spin text-primary"
+						/>
+					{:else if connected}
+						<!-- bg-background ring so the badge reads over the icon's stroke. -->
+						<HugeiconsIcon
+							icon={CheckmarkCircle01Icon}
+							strokeWidth={2.5}
+							class="absolute -bottom-1.5 -right-2 h-3.5 w-3.5 rounded-full bg-background text-primary"
+						/>
+					{/if}
+				</span>
+			</button>
+		{/if}
 
 		<!-- Theater mode: fullscreen, cover and lyrics, nothing else. Next to the mini player because
 		     the pair are the same idea in opposite directions (shrink the app / become the screen),
 		     and disabled with nothing playing, since there'd be nothing to show. -->
-		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-25"
-			onclick={() => (ui.theaterOpen = true)}
-			disabled={!playback.now}
-			title={t('player.theater_mode')}
-			aria-label={t('player.theater_mode')}
-		>
-			<HugeiconsIcon icon={CameraVideoIcon} class="h-4 w-4" />
-		</button>
+		{#if shown('theater')}
+			<button
+				class="flex h-full w-8 max-sm:hidden items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-25"
+				onclick={() => (ui.theaterOpen = true)}
+				disabled={!playback.now}
+				title={t('player.theater_mode')}
+				aria-label={t('player.theater_mode')}
+			>
+				<HugeiconsIcon icon={CameraVideoIcon} class="h-4 w-4" />
+			</button>
+		{/if}
 
 		<!-- Mini player: hides the app to the tray and hands over to the floating widget (mini.rs).
 		     It sits with the integrations rather than the window controls because it swaps what
 		     you're using, not the size of this window. -->
-		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
-			onclick={openMiniPlayer}
-			title={t('a11y.toggle_mini')}
-			aria-label={t('a11y.toggle_mini')}
-		>
-			<HugeiconsIcon icon={MinimizeScreenIcon} class="h-4 w-4" />
-		</button>
+		{#if shown('mini')}
+			<button
+				class="flex h-full w-8 max-sm:hidden items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+				onclick={openMiniPlayer}
+				title={t('a11y.toggle_mini')}
+				aria-label={t('a11y.toggle_mini')}
+			>
+				<HugeiconsIcon icon={MinimizeScreenIcon} class="h-4 w-4" />
+			</button>
+		{/if}
 
 		{#if win.chrome === 'off'}
 			<div class="mx-1.5 h-4 w-px bg-border"></div>
