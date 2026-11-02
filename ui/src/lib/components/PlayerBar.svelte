@@ -237,10 +237,13 @@
 	     hidden at this width, and at 400px there is exactly room for a title beside them.
 	     `basis-full` is what pushes the row onto its own line. -->
 	<div class="hidden min-w-0 items-center gap-1 max-sm:flex max-sm:basis-full">
+		<!-- Same meaning as the empty space of the bar: one press opens the now-playing view when
+		     nothing is open, and closes whatever is (the chevron, a panel) when something is. -->
 		<button
 			class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
-			onclick={() => (np.open = true)}
-			aria-label={t('player.open_player')}
+			onclick={() => (overlaysOpen ? onPullDown() : (np.open = true))}
+			aria-label={overlaysOpen ? t('player.minimize_player') : t('player.open_player')}
+			aria-expanded={overlaysOpen}
 		>
 			{#if playback.now?.thumbnail}
 				<img

@@ -155,15 +155,27 @@
 		api.togglePause();
 	}
 
-	// Scrolling the artwork is the volume, same step as the slider. The level only draws while the
-	// gesture is live (plus a second to read it) so the artwork is otherwise untouched.
+	// Scrolling over the stage (or over the artwork column in the classic layout) is the volume, same
+	// step as the slider. It used to be the artwork only, so turning the song down meant aiming at
+	// the cover first. The tab column stays out of the gesture: it has its own lists to scroll. The
+	// level only draws while the gesture is live (plus a second to read it) so nothing is otherwise
+	// touched.
 	let volFlash = $state(false);
 	let volTimer: ReturnType<typeof setTimeout>;
 	function onWheel(e: WheelEvent) {
+		// A list that scrolls inside the gesture area keeps its own scrolling.
+		if (scrollsUnder(e.target)) return;
 		wheelVolume(e);
 		volFlash = true;
 		clearTimeout(volTimer);
 		volTimer = setTimeout(() => (volFlash = false), 1000);
+	}
+	function scrollsUnder(node: EventTarget | null): boolean {
+		for (let el = node as HTMLElement | null; el && el !== view; el = el.parentElement) {
+			const overflow = getComputedStyle(el).overflowY;
+			if ((overflow === 'auto' || overflow === 'scroll') && el.scrollHeight > el.clientHeight + 1) return true;
+		}
+		return false;
 	}
 
 	// The queue row for what's playing: it carries the album link and what the ⋮ menu needs, which
@@ -520,7 +532,12 @@
 		     so what the bar's chevron opens has to be the track itself. Enlarged lyrics still win:
 		     they are the tab column, and the stage is not rendered at all while they are open. -->
 		{#if !big}
-			<section class="relative z-0 flex min-w-0 flex-1 flex-col px-6 pt-4 pb-6 lg:px-10">
+			<!-- The wheel is the volume here, not over the tab column: on a wide window that column is
+			     22rem wide and scrolling the queue would nudge the volume instead of the list. -->
+			<section
+				onwheel={onWheel}
+				class="relative z-0 flex min-w-0 flex-1 flex-col px-6 pt-4 pb-6 lg:px-10"
+			>
 				<!-- The way out on the left, the Song/Video switch in the middle. -->
 				<div class="grid h-10 shrink-0 grid-cols-[1fr_auto_1fr] items-center">
 					<!-- The same pull-down as the bar's chevron: it takes the panels with it when one is
@@ -552,8 +569,7 @@
 						data-np-keep
 						data-ctx
 					>
-						<!-- svelte-ignore a11y_no_static_element_interactions -- wheel is the volume gesture -->
-						<div bind:this={picBox} class="relative" onwheel={onWheel}>
+												<div bind:this={picBox} class="relative">
 							{#if !showVideo()}
 								<!-- The light the cover sits in: bigger than it and behind it, so it reads
 								     as a spill, where a shadow this size would be re-blurred on every
@@ -706,14 +722,13 @@
 				<!-- Centred against the full height of the column on the right. Below md the tabs step
 				     aside (see the tab column's max-md:hidden), so the artwork is what the view shows at
 				     narrow widths. Untabbed there is no second column, so it is the whole view anyway. -->
-				<div class="flex min-w-0 flex-1 items-center justify-center">
+				<div onwheel={onWheel} class="flex min-w-0 flex-1 items-center justify-center">
 					<!-- A div, not a button: the video-mode toggle has to be a sibling of the play/pause
 					     button rather than nested inside it (nested buttons are invalid HTML and the
 					     inner one never reliably gets the click). -->
 					<div
 						bind:this={picBox}
 						class="relative w-full {showVideo() ? 'max-w-[var(--vid)]' : 'max-w-[var(--art)]'}"
-						onwheel={onWheel}
 						data-np-keep
 					>
 						{#if volFlash}{@render volPlate()}{/if}

@@ -25,6 +25,9 @@
 	import { ON_REPEAT_ID, isLocalPlaylist, type BrowseItem } from '$lib/api';
 	import { thumb } from '$lib/thumb';
 	import PlaylistMenu from './PlaylistMenu.svelte';
+	import IntegrationButtons from './IntegrationButtons.svelte';
+	import AccountMenu from './AccountMenu.svelte';
+	import { appearance } from '$lib/theme.svelte';
 	import { library, personal, ui, openNewPlaylist, toggleSidebar } from '$lib/player.svelte';
 	import { mergeSaved, orderLibrary } from '$lib/personal';
 	import { t } from '$lib/i18n.svelte';
@@ -110,7 +113,13 @@
 	// (see `ui.navOpen` and the backdrop in +layout).
 	const drawer = (cls: string) => (ui.navOpen ? cls : '');
 	const closeDrawer = () => (ui.navOpen = false);
+	// The drawer's integration row is rendered rather than merely hidden below sm: the component
+	// watches the Last.fm and ListenBrainz sessions, and a second mounted copy would subscribe
+	// twice at every wider width.
+	let vw = $state(typeof window === 'undefined' ? 1200 : window.innerWidth);
 </script>
+
+<svelte:window bind:innerWidth={vw} />
 
 <!-- Holds the rail's 64px in the flow while the hover-open version is absolute, so a pointer
      passing over the rail widens it over the page instead of shoving the page sideways. -->
@@ -148,6 +157,11 @@
 					class="h-4 w-4"
 				/>
 			</Button>
+			<!-- Below sm the titlebar drops the account button, so the drawer keeps it here, left of
+			     the theme toggle. -->
+			{#if vw < 640 && !appearance.titlebarHidden.includes('account')}
+				<AccountMenu />
+			{/if}
 			<Button
 				variant="ghost"
 				size="icon-sm"
@@ -160,6 +174,17 @@
 			</Button>
 		</div>
 	</div>
+
+	<!-- Below sm the titlebar hides the integration buttons (its window controls need the room), so
+	     the drawer carries them here, under the wordmark, from the same component. Refresh stays in
+	     the bar at every width, so it is not repeated here. -->
+	{#if vw < 640}
+		<div class="flex flex-wrap items-center gap-1 px-1 pb-2">
+			<IntegrationButtons
+				itemClass="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+			/>
+		</div>
+	{/if}
 
 	<nav class="mt-2 flex flex-col gap-1">
 		{#each nav as n (n.href)}
